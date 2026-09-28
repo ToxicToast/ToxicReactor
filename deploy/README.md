@@ -71,13 +71,13 @@ Manual rollback: run the **Deploy** workflow with an older `tag` (e.g. `sha-abc1
 
 Repository secrets (Settings → Secrets and variables → Actions):
 
-| Secret | Value |
-| --- | --- |
-| `VPS_HOST` | VPS IP or hostname |
-| `VPS_USER` | `deploy` |
-| `VPS_PORT` | SSH port, optional — defaults to `22` |
-| `VPS_SSH_KEY` | full contents of the private `deploy_key` |
-| `VPS_SSH_KNOWN_HOSTS` | `ssh-keyscan` output for the host |
+| Secret                | Value                                     |
+| --------------------- | ----------------------------------------- |
+| `VPS_HOST`            | VPS IP or hostname                        |
+| `VPS_USER`            | `deploy`                                  |
+| `VPS_PORT`            | SSH port, optional — defaults to `22`     |
+| `VPS_SSH_KEY`         | full contents of the private `deploy_key` |
+| `VPS_SSH_KNOWN_HOSTS` | `ssh-keyscan` output for the host         |
 
 Repository variable: `DEPLOY_URL` (e.g. `https://api.example.com`) — enables the
 post-deploy smoke test and shows the link on the environment.
@@ -97,6 +97,7 @@ post-deploy smoke test and shows the link on the environment.
 
   Without that endpoint the container never reports healthy and every deploy
   fails after 120s.
+
 - **The container listens on port 3000** inside the network namespace.
 
 ## Open decision: failure policy
@@ -110,6 +111,6 @@ options:
 - **Fail loud** — leave the failed container stopped and page a human. Honest
   state, but downtime until someone reacts.
 
-Note that `up -d --wait` replaces the old container *before* waiting for health,
+Note that `up -d --wait` replaces the old container _before_ waiting for health,
 so a failed deploy means downtime either way. True zero-downtime needs two
 container slots and a proxy switch — out of scope for a single VPS.
