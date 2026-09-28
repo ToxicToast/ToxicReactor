@@ -1,0 +1,9 @@
+* text=auto
+
+# Shell scripts are executed on Linux (VPS / CI runners). A CRLF line ending
+# turns the shebang into `#!/usr/bin/env bash\r` and the kernel fails with
+# "bad interpreter", so these must stay LF even when edited on Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf

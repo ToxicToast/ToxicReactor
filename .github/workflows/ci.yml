@@ -2,39 +2,61 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'LICENSE'
+      - 'docs/**'
+      - '.vscode/**'
   pull_request:
+  workflow_dispatch: {}
 
 permissions:
-  actions: read
   contents: read
+  actions: read
+
+# Superseded PR runs are cancelled; pushes to main always run to completion so
+# every commit on the release branch has its own verified result.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # Nx Cloud is not used; keep the run fully local and non-interactive.
+  NX_NO_CLOUD: 'true'
+  NX_TUI: 'false'
 
 jobs:
   main:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
         with:
-          filter: tree:0
+          # Full history is required for `nx affected` to resolve a merge base.
           fetch-depth: 0
 
-      # This enables task distribution via Nx Cloud
-      # Run this command as early as possible, before dependencies are installed
-      # Learn more at https://nx.dev/docs/reference/nx-cloud-cli#npx-nxcloud-startcirun
-      - run: npx nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="e2e"
-
-      # Cache node_modules
-      - uses: actions/setup-node@v5
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: 'npm'
+          bun-version: latest
 
-      - run: npm ci
+      # Replacement for the Nx Cloud remote cache: reuse the local task cache
+      # across runs, keyed by branch, falling back to any recent cache.
+      - uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            nx-${{ runner.os }}-${{ github.ref_name }}-
+            nx-${{ runner.os }}-
 
-      # Prepend any command with "nx record --" to record its logs to Nx Cloud
-      - run: npx nx record -- npx nx format:check --base="remotes/origin/main"
-      - run: npx nx run-many -t lint test build typecheck e2e
-      # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/docs/features/ci-features/self-healing-ci
-      - run: npx nx fix-ci
-        if: always()
+      - run: bun install --frozen-lockfile
+
+      # Exports NX_BASE / NX_HEAD for the affected commands below.
+      - uses: nrwl/nx-set-shas@v4
+
+      - name: Format check
+        run: bunx nx format:check --base=$NX_BASE --head=$NX_HEAD
+
+      - name: Lint, test, typecheck, build (affected)
+        run: bunx nx affected -t lint test typecheck build --parallel=3

@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      specifier:
+        description: 'Version bump. "auto" derives it from conventional commits.'
+        required: true
+        default: 'auto'
+        type: choice
+        options: [auto, patch, minor, major, prerelease]
+      dry-run:
+        description: 'Preview only - no commit, tag or GitHub release'
+        required: false
+        default: false
+        type: boolean
+      first-release:
+        description: 'Enable for the very first release (no previous git tag exists)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  NX_NO_CLOUD: 'true'
+  NX_TUI: 'false'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Conventional-commit analysis and changelog generation read the full
+          # history and all tags.
+          fetch-depth: 0
+          filter: tree:0
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Verify build before releasing
+        run: bunx nx run-many -t lint test typecheck build --parallel=3
+
+      - name: Configure git author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: nx release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPECIFIER: ${{ inputs.specifier }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          FIRST_RELEASE: ${{ inputs.first-release }}
+        run: |
+          args=()
+          if [ "$SPECIFIER" != "auto" ]; then args+=("$SPECIFIER"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ "$FIRST_RELEASE" = "true" ]; then args+=(--first-release); fi
+          bunx nx release "${args[@]}" --skip-publish --yes

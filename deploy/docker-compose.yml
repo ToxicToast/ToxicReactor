@@ -1,0 +1,34 @@
+# Production stack on the VPS. Deployed to $STACK_DIR by .github/workflows/deploy.yml.
+# Interpolated values come from the .env file next to this one (created once, by hand,
+# on the server - it is never committed and never leaves the VPS).
+services:
+  api:
+    image: ${IMAGE:?IMAGE must be set by remote-deploy.sh}
+    container_name: ${STACK_NAME:-toxicreactor}-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Bound to loopback only: Docker writes port publishing straight into iptables
+    # and bypasses ufw, so a 0.0.0.0 bind would be world-reachable. The host's
+    # reverse proxy (nginx/Caddy) terminates TLS and forwards to this port.
+    ports:
+      - '127.0.0.1:${HOST_PORT:-3000}:3000'
+    healthcheck:
+      # Assumes a node-based runtime image and a GET /health endpoint (see deploy/README.md).
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    # Without limits, json-file logs grow until the VPS disk is full.
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'

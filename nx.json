@@ -21,6 +21,17 @@
       }
     }
   ],
-  "nxCloudId": "6ab8fdefc46ecf866dc2db9d",
+  "release": {
+    "projectsRelationship": "fixed",
+    "version": {
+      "conventionalCommits": true
+    },
+    "changelog": {
+      "workspaceChangelog": {
+        "createRelease": "github"
+      },
+      "projectChangelogs": false
+    }
+  },
   "analytics": false
 }
